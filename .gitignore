@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment
+.env
+venv/
+env/
+ENV/
+
+# Streamlit secrets (CRITICAL: DO NOT COMMIT SECRETS)
+.streamlit/secrets.toml
+secrets.toml
+
+# Uploads and temporary files
+uploads/*
+!uploads/.gitkeep
+
+# Operating System files
+.DS_Store
+Thumbs.db
