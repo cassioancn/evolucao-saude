@@ -77,6 +77,7 @@ def processar_metricas_historico(df_pesagens: pd.DataFrame, peso_inicial: float,
         return {
             "peso_atual": peso_inicial,
             "variacao_total": 0.0,
+            "perdido_ate_agora": 0.0,
             "progresso_pct": 0.0,
             "variacao_7d": 0.0,
             "variacao_30d": 0.0,
@@ -132,3 +133,4 @@ def processar_metricas_historico(df_pesagens: pd.DataFrame, peso_inicial: float,
         "taxa_semanal": round(taxa_semanal, 2),
         "tem_dados": True
     }
+

@@ -104,25 +104,28 @@ imc_valor, imc_class, imc_cor = calcular_imc(metricas["peso_atual"], altura)
 
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
-    card_metrica("Peso Atual", f"{metricas['peso_atual']:.1f} kg", f"Meta: {meta_peso:.1f} kg", "#0D9488", "⚖️")
+    peso_at = metricas.get("peso_atual", peso_inicial)
+    card_metrica("Peso Atual", f"{peso_at:.1f} kg", f"Meta: {meta_peso:.1f} kg", "#0D9488", "⚖️")
 with col2:
-    sinal = "-" if metricas["perdido_ate_agora"] > 0 else "+"
-    cor_perda = "#10B981" if metricas["perdido_ate_agora"] >= 0 else "#EF4444"
-    card_metrica("Total Eliminado", f"{metricas['perdido_ate_agora']:+.1f} kg", f"Início: {peso_inicial:.1f} kg", cor_perda, "🎯")
+    perdido = metricas.get("perdido_ate_agora", 0.0)
+    sinal = "-" if perdido > 0 else "+"
+    cor_perda = "#10B981" if perdido >= 0 else "#EF4444"
+    card_metrica("Total Eliminado", f"{perdido:+.1f} kg", f"Início: {peso_inicial:.1f} kg", cor_perda, "🎯")
 with col3:
-    cor_7d = "#10B981" if metricas["variacao_7d"] <= 0 else "#EF4444"
-    card_metrica("Últimos 7 dias", f"{metricas['variacao_7d']:+.1f} kg", "Ritmo semanal", cor_7d, "📅")
+    v_7d = metricas.get("variacao_7d", 0.0)
+    cor_7d = "#10B981" if v_7d <= 0 else "#EF4444"
+    card_metrica("Últimos 7 dias", f"{v_7d:+.1f} kg", "Ritmo semanal", cor_7d, "📅")
 with col4:
     card_metrica("IMC Atual", f"{imc_valor}", f"{imc_class}", imc_cor, "🩺")
 with col5:
-    projecao = calcular_projecao_meta(metricas["peso_atual"], meta_peso, metricas["taxa_semanal"])
+    projecao = calcular_projecao_meta(metricas.get("peso_atual", peso_inicial), meta_peso, metricas.get("taxa_semanal", 0.4))
     if projecao["meta_atingida"]:
         card_metrica("Projeção", "Concluído!", "Meta alcançada 🏆", "#10B981", "🎉")
     else:
         card_metrica("Previsão da Meta", projecao["data_estimada"].strftime("%d/%m/%Y"), f"~{projecao['semanas']:.0f} semanas restantes", "#6366F1", "🚀")
 
 # Barra de Progresso
-barra_progresso_meta(metricas["progresso_pct"], metricas["peso_atual"], meta_peso)
+barra_progresso_meta(metricas.get("progresso_pct", 0.0), metricas.get("peso_atual", peso_inicial), meta_peso)
 
 # ----------------- GRÁFICOS DE EVOLUÇÃO -----------------
 st.markdown("### 📈 Histórico e Curva de Tendência")
@@ -214,3 +217,4 @@ if not df_pesagens.empty:
 
 else:
     st.info("Nenhuma pesagem cadastrada ainda. Utilize o formulário acima para registrar sua primeira pesagem!")
+
