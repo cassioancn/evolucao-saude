@@ -32,9 +32,18 @@ def get_engine():
     global _engine
     if _engine is None:
         db_url = get_database_url()
-        # SQLAlchemy requires postgresql:// instead of postgres://
-        if db_url.startswith("postgres://"):
-            db_url = db_url.replace("postgres://", "postgresql://", 1)
+        # Garante o driver correto para o PostgreSQL no SQLAlchemy
+        if db_url.startswith("postgres://") or db_url.startswith("postgresql://"):
+            prefixo = "postgres://" if db_url.startswith("postgres://") else "postgresql://"
+            try:
+                import psycopg2
+                db_url = db_url.replace(prefixo, "postgresql+psycopg2://", 1)
+            except ImportError:
+                try:
+                    import psycopg
+                    db_url = db_url.replace(prefixo, "postgresql+psycopg://", 1)
+                except ImportError:
+                    db_url = db_url.replace(prefixo, "postgresql+psycopg2://", 1)
         
         # Configure connection pool suitable for Neon Serverless
         _engine = create_engine(
