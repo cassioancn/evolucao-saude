@@ -7,7 +7,7 @@ from utils.auth import requer_login, get_usuario_logado
 from components.sidebar import render_sidebar
 from components.metrics_cards import card_metrica
 
-st.set_page_config(page_title="Diário de Hábitos — Evolução Saúde", page_icon="💧", layout="wide")
+st.set_page_config(page_title="Diário de Hábitos — Evolução Saúde", page_icon="💧", layout="wide", initial_sidebar_state="auto")
 requer_login()
 render_sidebar()
 
@@ -161,3 +161,4 @@ if dados_hab:
     st.dataframe(pd.DataFrame(dados_hab), use_container_width=True, hide_index=True)
 else:
     st.info("Nenhum histórico de hábitos registrado ainda.")
+

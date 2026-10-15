@@ -8,7 +8,7 @@ from utils.auth import requer_login, get_usuario_logado
 from components.sidebar import render_sidebar
 from components.metrics_cards import card_metrica
 
-st.set_page_config(page_title="Medidas Corporais — Evolução Saúde", page_icon="📏", layout="wide")
+st.set_page_config(page_title="Medidas Corporais — Evolução Saúde", page_icon="📏", layout="wide", initial_sidebar_state="auto")
 requer_login()
 render_sidebar()
 
@@ -136,3 +136,4 @@ if dados:
 
 else:
     st.info("Nenhuma medição de circunferência registrada ainda. Clique em 'Registrar Novas Medidas' acima.")
+

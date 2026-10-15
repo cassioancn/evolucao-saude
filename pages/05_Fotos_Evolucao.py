@@ -8,7 +8,7 @@ from database.models import FotoEvolucao
 from utils.auth import requer_login, get_usuario_logado
 from components.sidebar import render_sidebar
 
-st.set_page_config(page_title="Galeria de Evolução — Evolução Saúde", page_icon="📸", layout="wide")
+st.set_page_config(page_title="Galeria de Evolução — Evolução Saúde", page_icon="📸", layout="wide", initial_sidebar_state="auto")
 requer_login()
 render_sidebar()
 
@@ -142,3 +142,4 @@ with tab_todas:
                         st.caption(f"📝 {item['notas']}")
     else:
         st.write("Nenhuma foto disponível.")
+

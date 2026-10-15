@@ -6,7 +6,7 @@ from utils.auth import requer_login, get_usuario_logado
 from utils.calculations import calcular_tmb_mifflin
 from components.sidebar import render_sidebar
 
-st.set_page_config(page_title="Configurações & Metas — Evolução Saúde", page_icon="⚙️", layout="wide")
+st.set_page_config(page_title="Configurações & Metas — Evolução Saúde", page_icon="⚙️", layout="wide", initial_sidebar_state="auto")
 requer_login()
 render_sidebar()
 
@@ -142,3 +142,4 @@ with tab_senha:
 
 st.divider()
 st.caption(f"Conexão ativa: **PostgreSQL Neon Serverless** • Usuário ID: {usuario['id']} ({usuario['login']})")
+

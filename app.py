@@ -2,13 +2,15 @@ import streamlit as st
 from database.models import init_db
 from utils.auth import verificar_credenciais, login_usuario, get_usuario_logado
 from components.sidebar import render_sidebar
+from components.ui_styles import aplicar_estilos_responsivos
 
 st.set_page_config(
     page_title="Evolução Saúde",
     page_icon="🌿",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="auto"
 )
+aplicar_estilos_responsivos()
 
 # Inicializa as tabelas no Neon (se ainda não existirem)
 try:
@@ -79,3 +81,4 @@ else:
             """,
             unsafe_allow_html=True
         )
+

@@ -10,7 +10,7 @@ from utils.ocr_reader import extrair_dados_print_balanca
 from components.sidebar import render_sidebar
 from components.metrics_cards import card_metrica
 
-st.set_page_config(page_title="Bioimpedância — Evolução Saúde", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="Bioimpedância — Evolução Saúde", page_icon="⚖️", layout="wide", initial_sidebar_state="auto")
 requer_login()
 render_sidebar()
 
@@ -232,3 +232,4 @@ if dados_hist:
 
 else:
     st.info("Cadastre sua primeira medição de bioimpedância acima para visualizar os gráficos de gordura e músculo.")
+

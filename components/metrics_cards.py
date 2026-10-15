@@ -4,7 +4,7 @@ def card_metrica(titulo: str, valor: str, subtitulo: str = "", cor_borda: str = 
     """Renderiza um card visual moderno para KPIs com design clean."""
     st.markdown(
         f"""
-        <div style="
+        <div class="card-kpi" style="
             background: #FFFFFF;
             border-radius: 12px;
             padding: 16px 20px;
@@ -16,7 +16,7 @@ def card_metrica(titulo: str, valor: str, subtitulo: str = "", cor_borda: str = 
                 <span style="font-size: 13px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">{titulo}</span>
                 <span style="font-size: 20px;">{icone}</span>
             </div>
-            <div style="font-size: 26px; font-weight: 700; color: #0F172A; margin: 4px 0;">{valor}</div>
+            <div class="card-kpi-valor" style="font-size: 26px; font-weight: 700; color: #0F172A; margin: 4px 0;">{valor}</div>
             <div style="font-size: 12px; color: #64748B;">{subtitulo}</div>
         </div>
         """,
@@ -44,3 +44,4 @@ def barra_progresso_meta(progresso_pct: float, peso_atual: float, peso_meta: flo
         """,
         unsafe_allow_html=True
     )
+

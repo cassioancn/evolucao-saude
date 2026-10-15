@@ -12,7 +12,12 @@ from utils.calculations import (
 from components.sidebar import render_sidebar
 from components.metrics_cards import card_metrica, barra_progresso_meta
 
-st.set_page_config(page_title="Dashboard & Metas — Evolução Saúde", page_icon="📊", layout="wide")
+st.set_page_config(
+    page_title="Dashboard & Metas — Evolução Saúde",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="auto"
+)
 requer_login()
 render_sidebar()
 

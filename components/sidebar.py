@@ -1,8 +1,10 @@
 import streamlit as st
 from utils.auth import get_usuario_logado, logout
+from components.ui_styles import aplicar_estilos_responsivos
 
 def render_sidebar():
     """Renderiza a barra lateral padronizada do aplicativo Evolução Saúde."""
+    aplicar_estilos_responsivos()
     usuario = get_usuario_logado()
     if not usuario:
         return
@@ -47,3 +49,4 @@ def render_sidebar():
         # Botão de Logout
         if st.button("🚪 Sair do Sistema", use_container_width=True):
             logout()
+
