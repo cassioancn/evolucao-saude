@@ -6,7 +6,8 @@ from database.connection import get_db
 from database.models import Usuario, ConfiguracaoMeta, Pesagem
 from utils.auth import requer_login, get_usuario_logado
 from utils.calculations import (
-    calcular_imc, calcular_projecao_meta, processar_metricas_historico
+    calcular_imc, detalhes_imc, calcular_tmb_mifflin, calcular_gasto_calorico_completo,
+    calcular_projecao_meta, processar_metricas_historico
 )
 from components.sidebar import render_sidebar
 from components.metrics_cards import card_metrica, barra_progresso_meta
@@ -99,16 +100,33 @@ with st.expander("⚡ **Registrar Pesagem Rápida de Hoje**", expanded=not metri
             st.success("✅ Pesagem salva no Neon com sucesso!")
             st.rerun()
 
-# ----------------- CARDS DE KPIS -----------------
-imc_valor, imc_class, imc_cor = calcular_imc(metricas["peso_atual"], altura)
+# ----------------- PARÂMETROS BIOMÉTRICOS & METABOLISMO (IMC & TMB) -----------------
+sexo_sugerido = "Feminino" if ("bruna" in usuario.get("login", "").lower() or "bruna" in usuario.get("nome", "").lower()) else "Masculino"
 
-col1, col2, col3, col4, col5 = st.columns(5)
+if "dash_idade" not in st.session_state:
+    st.session_state["dash_idade"] = 30
+if "dash_sexo" not in st.session_state:
+    st.session_state["dash_sexo"] = sexo_sugerido
+if "dash_atividade" not in st.session_state:
+    st.session_state["dash_atividade"] = "Moderadamente Ativo (3 a 5 dias/sem)"
+
+peso_calc = metricas.get("peso_atual", peso_inicial)
+imc_info = detalhes_imc(peso_calc, altura)
+gasto_info = calcular_gasto_calorico_completo(
+    st.session_state["dash_sexo"],
+    peso_calc,
+    altura,
+    st.session_state["dash_idade"],
+    st.session_state["dash_atividade"]
+)
+
+# ----------------- CARDS DE KPIS: LINHA 1 (PESO & METAS) -----------------
+st.markdown("##### 🎯 Progresso & Metas")
+col1, col2, col3, col4 = st.columns(4)
 with col1:
-    peso_at = metricas.get("peso_atual", peso_inicial)
-    card_metrica("Peso Atual", f"{peso_at:.1f} kg", f"Meta: {meta_peso:.1f} kg", "#0D9488", "⚖️")
+    card_metrica("Peso Atual", f"{peso_calc:.1f} kg", f"Meta: {meta_peso:.1f} kg", "#0D9488", "⚖️")
 with col2:
     perdido = metricas.get("perdido_ate_agora", 0.0)
-    sinal = "-" if perdido > 0 else "+"
     cor_perda = "#10B981" if perdido >= 0 else "#EF4444"
     card_metrica("Total Eliminado", f"{perdido:+.1f} kg", f"Início: {peso_inicial:.1f} kg", cor_perda, "🎯")
 with col3:
@@ -116,16 +134,92 @@ with col3:
     cor_7d = "#10B981" if v_7d <= 0 else "#EF4444"
     card_metrica("Últimos 7 dias", f"{v_7d:+.1f} kg", "Ritmo semanal", cor_7d, "📅")
 with col4:
-    card_metrica("IMC Atual", f"{imc_valor}", f"{imc_class}", imc_cor, "🩺")
-with col5:
-    projecao = calcular_projecao_meta(metricas.get("peso_atual", peso_inicial), meta_peso, metricas.get("taxa_semanal", 0.4))
+    projecao = calcular_projecao_meta(peso_calc, meta_peso, metricas.get("taxa_semanal", 0.4))
     if projecao["meta_atingida"]:
         card_metrica("Projeção", "Concluído!", "Meta alcançada 🏆", "#10B981", "🎉")
     else:
-        card_metrica("Previsão da Meta", projecao["data_estimada"].strftime("%d/%m/%Y"), f"~{projecao['semanas']:.0f} semanas restantes", "#6366F1", "🚀")
+        card_metrica("Previsão Meta", projecao["data_estimada"].strftime("%d/%m/%Y"), f"~{projecao['semanas']:.0f} sem. restantes", "#6366F1", "🚀")
+
+# ----------------- CARDS DE KPIS: LINHA 2 (IMC & METABOLISMO BASAL) -----------------
+st.markdown("##### 🧬 Biometria, IMC & Taxa Metabólica Basal (TMB)")
+kpi_b1, kpi_b2, kpi_b3, kpi_b4 = st.columns(4)
+with kpi_b1:
+    card_metrica("IMC Atual", f"{imc_info['imc']}", f"{imc_info['classificacao']}", imc_info["cor"], "🩺")
+with kpi_b2:
+    card_metrica("Taxa Metabólica Basal", f"{gasto_info['tmb']} kcal", "Gasto em repouso vital", "#F59E0B", "🔥")
+with kpi_b3:
+    card_metrica("Gasto Diário (TDEE)", f"{gasto_info['tdee']} kcal", "Metabolismo + Atividades", "#3B82F6", "⚡")
+with kpi_b4:
+    card_metrica("Meta Calórica Diária", f"{gasto_info['deficit_sugerido']} kcal", "Déficit seguro para emagrecer", "#10B981", "🥗")
 
 # Barra de Progresso
-barra_progresso_meta(metricas.get("progresso_pct", 0.0), metricas.get("peso_atual", peso_inicial), meta_peso)
+barra_progresso_meta(metricas.get("progresso_pct", 0.0), peso_calc, meta_peso)
+
+# ----------------- PAINEL COMPLETO: CÁLCULOS DETALHADOS DE IMC & TMB -----------------
+with st.container(border=True):
+    st.markdown("### 🧮 Detalhamento dos Cálculos: IMC e Taxa de Metabolismo Basal")
+    
+    col_imc_box, col_tmb_box = st.columns(2)
+    
+    with col_imc_box:
+        st.markdown("#### 🩺 Análise do seu IMC (Índice de Massa Corporal)")
+        st.markdown(f"""
+        - **Dados utilizados:** Peso atual de **{peso_calc:.1f} kg** e Altura de **{altura:.0f} cm** ({altura/100:.2f} m).
+        - **Fórmula:** `Peso (kg) / [Altura (m)]²`
+        - **Seu IMC Atual:** `{imc_info['imc']}` — <span style="color:{imc_info['cor']}; font-weight:700;">{imc_info['classificacao']}</span>
+        - **Faixa de Peso Saudável (OMS):** entre **{imc_info['peso_min_ideal']} kg** e **{imc_info['peso_max_ideal']} kg** para sua altura.
+        """, unsafe_allow_html=True)
+        
+        if imc_info["classificacao"] == "Peso saudável":
+            st.success("🎉 Excelente! O seu peso atual está dentro da faixa saudável recomendada.")
+        elif peso_calc > imc_info["peso_max_ideal"]:
+            st.info(f"💡 Faltam **{imc_info['diferenca_saudavel']:.1f} kg** para alcançar a faixa de peso saudável ({imc_info['peso_max_ideal']} kg).")
+        else:
+            st.info(f"💡 Faltam **{imc_info['diferenca_saudavel']:.1f} kg** para alcançar o limite inferior saudável ({imc_info['peso_min_ideal']} kg).")
+            
+        st.caption("Classificação OMS: Abaixo do peso (< 18.5) • Saudável (18.5 – 24.9) • Sobrepeso (25.0 – 29.9) • Obesidade (≥ 30.0)")
+
+    with col_tmb_box:
+        st.markdown("#### 🔥 Taxa Metabólica Basal (Fórmula Mifflin-St Jeor)")
+        st.caption("Ajuste seus dados biométricos para recalcular instantaneamente:")
+        
+        c_t1, c_t2, c_t3 = st.columns([1, 1, 1.5])
+        with c_t1:
+            nova_idade = st.number_input("Idade", min_value=14, max_value=99, value=int(st.session_state["dash_idade"]), step=1, key="input_dash_idade")
+            st.session_state["dash_idade"] = nova_idade
+        with c_t2:
+            opcoes_sexo = ["Feminino", "Masculino"]
+            idx_sexo = 0 if st.session_state["dash_sexo"] == "Feminino" else 1
+            novo_sexo = st.selectbox("Sexo", opcoes_sexo, index=idx_sexo, key="input_dash_sexo")
+            st.session_state["dash_sexo"] = novo_sexo
+        with c_t3:
+            opcoes_ativ = [
+                "Sedentário (pouco/nenhum)",
+                "Levemente Ativo (1 a 3 dias/sem)",
+                "Moderadamente Ativo (3 a 5 dias/sem)",
+                "Muito Ativo (6 a 7 dias/sem)"
+            ]
+            idx_ativ = 2
+            for i, op in enumerate(opcoes_ativ):
+                if op.split()[0].lower() in st.session_state["dash_atividade"].lower():
+                    idx_ativ = i
+                    break
+            novo_ativ = st.selectbox("Atividade Semanal", opcoes_ativ, index=idx_ativ, key="input_dash_ativ")
+            st.session_state["dash_atividade"] = novo_ativ
+
+        # Recalcula com os inputs atualizados
+        gasto_atualizado = calcular_gasto_calorico_completo(novo_sexo, peso_calc, altura, nova_idade, novo_ativ)
+        
+        st.markdown(f"""
+        - **🔥 Taxa Metabólica Basal (TMB):** `{gasto_atualizado['tmb']} kcal/dia`  
+          *(Energia que seu corpo consome em repouso absoluto apenas para manter batimentos cardíacos, respiração e cérebro).*
+        - **⚡ Gasto Total Diário (TDEE):** `{gasto_atualizado['tdee']} kcal/dia`  
+          *(Gasto estimado somando o metabolismo basal + rotina de exercícios).*
+        - **🥗 Meta Calórica Sugerida:** `{gasto_atualizado['deficit_sugerido']} kcal/dia`  
+          *(Déficit seguro de ~400 kcal/dia para queimar gordura de forma contínua).*
+        """)
+
+
 
 # ----------------- GRÁFICOS DE EVOLUÇÃO -----------------
 st.markdown("### 📈 Histórico e Curva de Tendência")
