@@ -71,8 +71,3 @@ url = "postgresql://usuario:senha@ep-xyz.us-east-2.aws.neon.tech/neondb?sslmode=
 streamlit run app.py
 ```
 
----
-
-## 👥 Usuários Padrão Inicializados
-- **Bruna:** login `bruna` / senha inicial `bruna123`
-- **Cássio:** login `cassio` / senha inicial `admin123`
