@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import date
 from database.connection import get_db
-from database.models import Usuario, ConfiguracaoMeta, hash_senha
+from database.models import Usuario, ConfiguracaoMeta, Pesagem, hash_senha
 from utils.auth import requer_login, get_usuario_logado
 from utils.calculations import calcular_tmb_mifflin
 from components.sidebar import render_sidebar
@@ -19,7 +19,7 @@ st.markdown(
             ⚙️ Configurações & Metas Pessoais
         </h1>
         <p style="color: #64748B; font-size: 14px; margin-top: 4px;">
-            Ajuste sua meta de peso, dados biométricos e segurança de acesso.
+            Ajuste sua meta de peso, dados biométricos (idade, sexo, atividade) e segurança de acesso.
         </p>
     </div>
     """,
@@ -38,7 +38,10 @@ with get_db() as db:
             peso_inicial=70.0,
             meta_peso=60.0,
             data_inicio=date.today(),
-            meta_agua_ml=2500
+            meta_agua_ml=2500,
+            idade=30,
+            sexo="Feminino" if "bruna" in usuario.get("login", "").lower() else "Masculino",
+            nivel_atividade="Moderadamente Ativo (exercício 3 a 5 dias/semana)"
         )
         db.add(meta)
         db.flush()
@@ -48,51 +51,86 @@ with get_db() as db:
     meta_peso_atual = meta.meta_peso
     data_ini_atual = meta.data_inicio
     meta_agua_atual = meta.meta_agua_ml
+    idade_atual = getattr(meta, "idade", 30) or 30
+    sexo_atual = getattr(meta, "sexo", "Feminino") or ("Feminino" if "bruna" in usuario.get("login", "").lower() else "Masculino")
+    nivel_ativ_atual = getattr(meta, "nivel_atividade", "Moderadamente Ativo (exercício 3 a 5 dias/semana)") or "Moderadamente Ativo (exercício 3 a 5 dias/semana)"
+
+    # Busca a última pesagem registrada para referência de cálculo
+    ultima_pesagem_obj = db.query(Pesagem).filter(
+        Pesagem.usuario_id == usuario["id"]
+    ).order_by(Pesagem.data_pesagem.desc()).first()
+    peso_atual_ref = ultima_pesagem_obj.peso if ultima_pesagem_obj else peso_ini_atual
 
 tab_metas, tab_tmb, tab_senha = st.tabs(["🎯 Ajustar Metas & Biometria", "🔥 Calculadora de Gasto Calórico (TMB)", "🔒 Trocar Senha"])
 
 # ----------------- ABA 1: METAS & BIOMETRIA -----------------
 with tab_metas:
     with st.form("form_config_metas"):
+        st.markdown("#### 🧬 Dados Biométricos & Pessoais")
         col1, col2 = st.columns(2)
         with col1:
             nova_altura = st.number_input("Sua Altura (cm)", min_value=120.0, max_value=220.0, value=float(altura_atual), step=0.5)
-            novo_peso_ini = st.number_input("Peso de Início (kg)", min_value=30.0, max_value=250.0, value=float(peso_ini_atual), step=0.1)
-            data_inicio = st.date_input("Data de Início da Jornada", value=data_ini_atual)
+            nova_idade = st.number_input("Sua Idade (anos)", min_value=14, max_value=99, value=int(idade_atual), step=1)
+            opcoes_sexo = ["Feminino", "Masculino"]
+            idx_sexo = 0 if sexo_atual == "Feminino" else 1
+            novo_sexo = st.selectbox("Sexo Biológico", opcoes_sexo, index=idx_sexo)
+            
+            opcoes_ativ = [
+                "Sedentário (pouco ou nenhum exercício)",
+                "Levemente Ativo (exercício 1 a 3 dias/semana)",
+                "Moderadamente Ativo (exercício 3 a 5 dias/semana)",
+                "Muito Ativo (exercício 6 a 7 dias/semana)"
+            ]
+            idx_ativ = 2
+            for i, op in enumerate(opcoes_ativ):
+                if op.split()[0].lower() in nivel_ativ_atual.lower():
+                    idx_ativ = i
+                    break
+            novo_nivel_ativ = st.selectbox("Nível de Atividade Física Semanal", opcoes_ativ, index=idx_ativ)
 
         with col2:
+            novo_peso_ini = st.number_input("Peso de Início (kg)", min_value=30.0, max_value=250.0, value=float(peso_ini_atual), step=0.1)
             nova_meta = st.number_input("Meta de Peso Alvo (kg)", min_value=30.0, max_value=200.0, value=float(meta_peso_atual), step=0.1)
+            data_inicio = st.date_input("Data de Início da Jornada", value=data_ini_atual)
             meta_agua = st.number_input("Meta Diária de Água (ml)", min_value=1000, max_value=6000, value=int(meta_agua_atual), step=250)
 
-        if st.form_submit_button("💾 Salvar Alterações nas Metas", type="primary", use_container_width=True):
+        if st.form_submit_button("💾 Salvar Alterações nas Metas & Biometria", type="primary", use_container_width=True):
             with get_db() as db:
                 m = db.query(ConfiguracaoMeta).filter(ConfiguracaoMeta.usuario_id == usuario["id"]).first()
                 if m:
                     m.altura_cm = nova_altura
+                    m.idade = nova_idade
+                    m.sexo = novo_sexo
+                    m.nivel_atividade = novo_nivel_ativ
                     m.peso_inicial = novo_peso_ini
                     m.meta_peso = nova_meta
                     m.data_inicio = data_inicio
                     m.meta_agua_ml = meta_agua
-            st.success("✅ Metas atualizadas com sucesso no Neon!")
+            st.success("✅ Metas e Biometria atualizadas com sucesso no Neon!")
             st.rerun()
 
 # ----------------- ABA 2: CALCULADORA TMB -----------------
 with tab_tmb:
     st.markdown("#### Estimativa de Queima Calórica Diária (Fórmula Mifflin-St Jeor)")
+    st.info(f"💡 **Dados ativos do seu perfil:** Altura: **{altura_atual:.0f} cm** • Idade: **{idade_atual} anos** • Sexo: **{sexo_atual}** • Peso Atual (última pesagem): **{peso_atual_ref:.1f} kg**")
+    
     col_t1, col_t2 = st.columns(2)
     with col_t1:
-        idade = st.number_input("Idade (anos)", min_value=15, max_value=90, value=30)
-        sexo = st.selectbox("Sexo Biológico", ["Feminino", "Masculino"])
-        nivel_atividade = st.selectbox(
-            "Nível de Atividade Física Semanal",
-            [
-                "Sedentário (pouco ou nenhum exercício)",
-                "Levemente Ativo (exercício 1 a 3 dias/semana)",
-                "Moderadamente Ativo (exercício 3 a 5 dias/semana)",
-                "Muito Ativo (exercício 6 a 7 dias/semana)"
-            ],
-            index=1
-        )
+        idade_calc = st.number_input("Idade (anos)", min_value=14, max_value=99, value=int(idade_atual), key="tmb_idade")
+        sexo_calc = st.selectbox("Sexo Biológico", ["Feminino", "Masculino"], index=0 if sexo_atual == "Feminino" else 1, key="tmb_sexo")
+        opcoes_ativ_tmb = [
+            "Sedentário (pouco ou nenhum exercício)",
+            "Levemente Ativo (exercício 1 a 3 dias/semana)",
+            "Moderadamente Ativo (exercício 3 a 5 dias/semana)",
+            "Muito Ativo (exercício 6 a 7 dias/semana)"
+        ]
+        idx_ativ_tmb = 2
+        for i, op in enumerate(opcoes_ativ_tmb):
+            if op.split()[0].lower() in nivel_ativ_atual.lower():
+                idx_ativ_tmb = i
+                break
+        ativ_calc = st.selectbox("Nível de Atividade Física Semanal", opcoes_ativ_tmb, index=idx_ativ_tmb, key="tmb_ativ")
+        peso_calc_tmb = st.number_input("Peso para Cálculo (kg)", min_value=30.0, max_value=250.0, value=float(peso_atual_ref), step=0.1, key="tmb_peso")
 
     fatores = {
         "Sedentário (pouco ou nenhum exercício)": 1.2,
@@ -101,8 +139,8 @@ with tab_tmb:
         "Muito Ativo (exercício 6 a 7 dias/semana)": 1.725
     }
 
-    tmb = calcular_tmb_mifflin(sexo, peso_ini_atual, altura_atual, idade)
-    gasto_total = int(round(tmb * fatores[nivel_atividade]))
+    tmb = calcular_tmb_mifflin(sexo_calc, peso_calc_tmb, altura_atual, idade_calc)
+    gasto_total = int(round(tmb * fatores[ativ_calc]))
     meta_emagrecimento = max(1200, gasto_total - 400) # Déficit seguro de 400 kcal
 
     with col_t2:
@@ -111,10 +149,21 @@ with tab_tmb:
             st.caption("Energia gasta pelo corpo em repouso absoluto apenas para sobreviver.")
             
             st.markdown(f"**⚡ Gasto Calórico Total Diário (TDEE):** `{gasto_total} kcal/dia`")
-            st.caption("Quantidade para manter exatamente o mesmo peso atual.")
+            st.caption("Quantidade para manter exatamente o mesmo peso atual considerando seu nível de atividade.")
             
             st.markdown(f"**🥗 Meta para Emagrecimento Saudável:** `{meta_emagrecimento} kcal/dia`")
             st.caption("Déficit calórico equilibrado (~0.4 a 0.5 kg de gordura perdida por semana).")
+
+            if st.button("💾 Salvar estes dados biométricos no meu Perfil", type="primary"):
+                with get_db() as db:
+                    m = db.query(ConfiguracaoMeta).filter(ConfiguracaoMeta.usuario_id == usuario["id"]).first()
+                    if m:
+                        m.idade = idade_calc
+                        m.sexo = sexo_calc
+                        m.nivel_atividade = ativ_calc
+                st.success("✅ Dados biométricos gravados com sucesso no seu perfil!")
+                st.rerun()
+
 
 # ----------------- ABA 3: TROCAR SENHA -----------------
 with tab_senha:

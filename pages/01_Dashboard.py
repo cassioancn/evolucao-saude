@@ -40,6 +40,9 @@ with get_db() as db:
     altura = meta_obj.altura_cm
     peso_inicial = meta_obj.peso_inicial
     meta_peso = meta_obj.meta_peso
+    idade = getattr(meta_obj, "idade", 30) or 30
+    sexo = getattr(meta_obj, "sexo", "Feminino") or ("Feminino" if "bruna" in usuario.get("login", "").lower() else "Masculino")
+    nivel_atividade = getattr(meta_obj, "nivel_atividade", "Moderadamente Ativo (3 a 5 dias/sem)") or "Moderadamente Ativo (3 a 5 dias/sem)"
 
     # 2. Carrega histórico de pesagens
     pesagens = db.query(Pesagem).filter(
@@ -106,23 +109,24 @@ with st.expander("⚡ **Registrar Pesagem Rápida de Hoje**", expanded=not metri
             st.rerun()
 
 # ----------------- PARÂMETROS BIOMÉTRICOS & METABOLISMO (IMC & TMB) -----------------
-sexo_sugerido = "Feminino" if ("bruna" in usuario.get("login", "").lower() or "bruna" in usuario.get("nome", "").lower()) else "Masculino"
+# O peso de cálculo é a última pesagem cadastrada no histórico (ou o peso inicial se ainda não houver pesagens)
+if not df_pesagens.empty:
+    ult_row = df_pesagens.sort_values(by="data_pesagem").iloc[-1]
+    peso_calc = float(ult_row["peso"])
+    data_ult_str = ult_row["data_pesagem"].strftime("%d/%m/%Y")
+    origem_peso_txt = f"última pesagem em {data_ult_str}"
+else:
+    peso_calc = float(peso_inicial)
+    origem_peso_txt = "peso inicial cadastrado"
 
-if "dash_idade" not in st.session_state:
-    st.session_state["dash_idade"] = 30
-if "dash_sexo" not in st.session_state:
-    st.session_state["dash_sexo"] = sexo_sugerido
-if "dash_atividade" not in st.session_state:
-    st.session_state["dash_atividade"] = "Moderadamente Ativo (3 a 5 dias/sem)"
-
-peso_calc = metricas.get("peso_atual", peso_inicial)
+# Cálculos 100% automáticos baseados nos dados salvos do perfil do usuário e última pesagem
 imc_info = detalhes_imc(peso_calc, altura)
 gasto_info = calcular_gasto_calorico_completo(
-    st.session_state["dash_sexo"],
+    sexo,
     peso_calc,
     altura,
-    st.session_state["dash_idade"],
-    st.session_state["dash_atividade"]
+    idade,
+    nivel_atividade
 )
 
 # ----------------- CARDS DE KPIS: LINHA 1 (PESO & METAS) -----------------
@@ -169,7 +173,7 @@ with st.container(border=True):
     with col_imc_box:
         st.markdown("#### 🩺 Análise do seu IMC (Índice de Massa Corporal)")
         st.markdown(f"""
-        - **Dados utilizados:** Peso atual de **{peso_calc:.1f} kg** e Altura de **{altura:.0f} cm** ({altura/100:.2f} m).
+        - **Dados utilizados:** Peso atual de **{peso_calc:.1f} kg** ({origem_peso_txt}) e Altura de **{altura:.0f} cm** ({altura/100:.2f} m).
         - **Fórmula:** `Peso (kg) / [Altura (m)]²`
         - **Seu IMC Atual:** `{imc_info['imc']}` — <span style="color:{imc_info['cor']}; font-weight:700;">{imc_info['classificacao']}</span>
         - **Faixa de Peso Saudável (OMS):** entre **{imc_info['peso_min_ideal']} kg** e **{imc_info['peso_max_ideal']} kg** para sua altura.
@@ -186,43 +190,47 @@ with st.container(border=True):
 
     with col_tmb_box:
         st.markdown("#### 🔥 Taxa Metabólica Basal (Fórmula Mifflin-St Jeor)")
-        st.caption("Ajuste seus dados biométricos para recalcular instantaneamente:")
-        
-        c_t1, c_t2, c_t3 = st.columns([1, 1, 1.5])
-        with c_t1:
-            nova_idade = st.number_input("Idade", min_value=14, max_value=99, value=int(st.session_state["dash_idade"]), step=1, key="input_dash_idade")
-            st.session_state["dash_idade"] = nova_idade
-        with c_t2:
-            opcoes_sexo = ["Feminino", "Masculino"]
-            idx_sexo = 0 if st.session_state["dash_sexo"] == "Feminino" else 1
-            novo_sexo = st.selectbox("Sexo", opcoes_sexo, index=idx_sexo, key="input_dash_sexo")
-            st.session_state["dash_sexo"] = novo_sexo
-        with c_t3:
-            opcoes_ativ = [
-                "Sedentário (pouco/nenhum)",
-                "Levemente Ativo (1 a 3 dias/sem)",
-                "Moderadamente Ativo (3 a 5 dias/sem)",
-                "Muito Ativo (6 a 7 dias/sem)"
-            ]
-            idx_ativ = 2
-            for i, op in enumerate(opcoes_ativ):
-                if op.split()[0].lower() in st.session_state["dash_atividade"].lower():
-                    idx_ativ = i
-                    break
-            novo_ativ = st.selectbox("Atividade Semanal", opcoes_ativ, index=idx_ativ, key="input_dash_ativ")
-            st.session_state["dash_atividade"] = novo_ativ
-
-        # Recalcula com os inputs atualizados
-        gasto_atualizado = calcular_gasto_calorico_completo(novo_sexo, peso_calc, altura, nova_idade, novo_ativ)
-        
         st.markdown(f"""
-        - **🔥 Taxa Metabólica Basal (TMB):** `{gasto_atualizado['tmb']} kcal/dia`  
+        - **Dados ativos do seu Perfil:** Idade: **{idade} anos** • Sexo: **{sexo}** • Atividade: **{nivel_atividade.split('(')[0].strip()}**
+        - **Peso Utilizado:** **{peso_calc:.1f} kg** ({origem_peso_txt})
+        - **🔥 Taxa Metabólica Basal (TMB):** `{gasto_info['tmb']} kcal/dia`  
           *(Energia que seu corpo consome em repouso absoluto apenas para manter batimentos cardíacos, respiração e cérebro).*
-        - **⚡ Gasto Total Diário (TDEE):** `{gasto_atualizado['tdee']} kcal/dia`  
+        - **⚡ Gasto Total Diário (TDEE):** `{gasto_info['tdee']} kcal/dia`  
           *(Gasto estimado somando o metabolismo basal + rotina de exercícios).*
-        - **🥗 Meta Calórica Sugerida:** `{gasto_atualizado['deficit_sugerido']} kcal/dia`  
+        - **🥗 Meta Calórica Sugerida:** `{gasto_info['deficit_sugerido']} kcal/dia`  
           *(Déficit seguro de ~400 kcal/dia para queimar gordura de forma contínua).*
         """)
+
+        with st.expander("✏️ **Atualizar dados biométricos (idade, sexo, atividade) no perfil**"):
+            with st.form("form_quick_biometria"):
+                cb_i1, cb_i2 = st.columns(2)
+                with cb_i1:
+                    novo_idade = st.number_input("Idade (anos)", min_value=14, max_value=99, value=int(idade))
+                    novo_sexo = st.selectbox("Sexo Biológico", ["Feminino", "Masculino"], index=0 if sexo == "Feminino" else 1)
+                with cb_i2:
+                    opcoes_ativ_dash = [
+                        "Sedentário (pouco ou nenhum exercício)",
+                        "Levemente Ativo (exercício 1 a 3 dias/semana)",
+                        "Moderadamente Ativo (exercício 3 a 5 dias/semana)",
+                        "Muito Ativo (exercício 6 a 7 dias/semana)"
+                    ]
+                    idx_ativ_dash = 2
+                    for i, op in enumerate(opcoes_ativ_dash):
+                        if op.split()[0].lower() in nivel_atividade.lower():
+                            idx_ativ_dash = i
+                            break
+                    novo_ativ = st.selectbox("Atividade Semanal", opcoes_ativ_dash, index=idx_ativ_dash)
+                
+                if st.form_submit_button("💾 Salvar Alterações no Meu Perfil", type="primary", use_container_width=True):
+                    with get_db() as db:
+                        m = db.query(ConfiguracaoMeta).filter(ConfiguracaoMeta.usuario_id == usuario["id"]).first()
+                        if m:
+                            m.idade = novo_idade
+                            m.sexo = novo_sexo
+                            m.nivel_atividade = novo_ativ
+                    st.success("✅ Perfil biométrico salvo com sucesso no banco Neon!")
+                    st.rerun()
+
 
 
 

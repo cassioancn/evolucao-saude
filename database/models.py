@@ -39,6 +39,9 @@ class ConfiguracaoMeta(Base):
     data_alvo = Column(Date, nullable=True)
     calorias_diarias_meta = Column(Integer, nullable=True, default=1600)
     meta_agua_ml = Column(Integer, default=2500)
+    idade = Column(Integer, nullable=True, default=30)
+    sexo = Column(String(20), nullable=True, default="Feminino")
+    nivel_atividade = Column(String(100), nullable=True, default="Moderadamente Ativo (3 a 5 dias/sem)")
     atualizado_em = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     usuario = relationship("Usuario", back_populates="metas")
@@ -124,8 +127,19 @@ class FotoEvolucao(Base):
 
 def init_db():
     """Cria todas as tabelas no banco de dados e inicializa os usuários padrão."""
+    from sqlalchemy import text
     engine = get_engine()
     Base.metadata.create_all(bind=engine)
+
+    # Migração automática de colunas para PostgreSQL Neon
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE configuracao_metas ADD COLUMN IF NOT EXISTS idade INTEGER DEFAULT 30;"))
+            conn.execute(text("ALTER TABLE configuracao_metas ADD COLUMN IF NOT EXISTS sexo VARCHAR(20) DEFAULT 'Feminino';"))
+            conn.execute(text("ALTER TABLE configuracao_metas ADD COLUMN IF NOT EXISTS nivel_atividade VARCHAR(100) DEFAULT 'Moderadamente Ativo (3 a 5 dias/sem)';"))
+            conn.commit()
+    except Exception as e:
+        print(f"Aviso na migração de colunas: {e}")
     
     with get_db() as db:
         # Usuário Bruna
@@ -147,7 +161,10 @@ def init_db():
                 peso_inicial=72.0,
                 meta_peso=62.0,
                 data_inicio=date.today(),
-                meta_agua_ml=2500
+                meta_agua_ml=2500,
+                idade=30,
+                sexo="Feminino",
+                nivel_atividade="Moderadamente Ativo (3 a 5 dias/sem)"
             )
             db.add(meta)
         
@@ -161,4 +178,18 @@ def init_db():
                 role="admin"
             )
             db.add(cassio)
+            db.flush()
+
+            meta_c = ConfiguracaoMeta(
+                usuario_id=cassio.id,
+                altura_cm=178.0,
+                peso_inicial=80.0,
+                meta_peso=75.0,
+                data_inicio=date.today(),
+                meta_agua_ml=3000,
+                idade=33,
+                sexo="Masculino",
+                nivel_atividade="Moderadamente Ativo (3 a 5 dias/sem)"
+            )
+            db.add(meta_c)
 
