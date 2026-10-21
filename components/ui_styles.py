@@ -75,16 +75,50 @@ def aplicar_estilos_responsivos():
 
         /* Abas com rolagem horizontal suave por toque */
         div[data-baseweb="tab-list"] {
+            display: flex !important;
+            flex-direction: row !important;
             overflow-x: auto !important;
             white-space: nowrap !important;
             flex-wrap: nowrap !important;
             -webkit-overflow-scrolling: touch !important;
-            padding-bottom: 4px !important;
-            gap: 4px !important;
+            scroll-behavior: smooth !important;
+            scrollbar-width: none !important;
+            padding-bottom: 6px !important;
+            gap: 6px !important;
+            width: 100% !important;
         }
-        div[data-baseweb="tab"] {
-            padding: 8px 12px !important;
-            font-size: 13px !important;
+        div[data-baseweb="tab-list"]::-webkit-scrollbar {
+            display: none !important;
+        }
+
+        /* Oculta as flechinhas quebradas do BaseWeb que travam no celular */
+        div[data-baseweb="tab-list"] ~ button,
+        div[data-baseweb="tab-list"] > button[aria-label*="Scroll"],
+        div[data-baseweb="tab-list"] > button[aria-label="Previous"],
+        div[data-baseweb="tab-list"] > button[aria-label="Next"],
+        div[data-baseweb="tab-border"] ~ button {
+            display: none !important;
+        }
+
+        button[data-baseweb="tab"] {
+            flex: 0 0 auto !important;
+            padding: 8px 14px !important;
+            font-size: 13.5px !important;
+            min-height: 42px !important;
+            border-radius: 8px !important;
+        }
+
+        /* Botão da barra lateral touch-friendly */
+        [data-testid="stSidebarCollapsedControl"],
+        [data-testid="collapsedControl"] {
+            top: 14px !important;
+            left: 14px !important;
+            z-index: 999999 !important;
+            min-width: 44px !important;
+            min-height: 44px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
         }
 
         /* Colunas fluidas empilhadas com espaçamento limpo */
@@ -125,3 +159,4 @@ def aplicar_estilos_responsivos():
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
+
