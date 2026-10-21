@@ -18,6 +18,12 @@ def aplicar_estilos_responsivos():
         overflow-x: hidden !important;
     }
 
+    /* Oculta footer padrão e marcas d'água */
+    footer, [data-testid="stStatusWidget"], [class*="viewerBadge"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
     /* Otimização especial para telas de celulares (até 768px) */
     @media (max-width: 768px) {
         /* Aproveita o espaço da tela do celular removendo as margens gigantes do Streamlit */
